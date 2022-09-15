@@ -47,7 +47,9 @@ def create_app(test_config=None):
         page = request.args.get("page", 1, type=int)
 
         categories = Category.query.all()
+
         formated_categories = {}
+
         for category in categories:
             formated_categories[category.id] = category.type
 
@@ -88,7 +90,7 @@ def create_app(test_config=None):
             )
         except:
             abort(400, "Missing fields")
-            
+
         question.insert()
 
         return jsonify({"success": True})
@@ -96,17 +98,26 @@ def create_app(test_config=None):
     @app.route("/search", methods=["POST"])
     def search_question():
         data = request.get_json()
+
         if data is None:
             abort(400)
         page = request.args.get("page", 1, type=int)
+
         try:
             search_query = data['searchTerm']
         except:
             abort(400)
+
         questions = Question.query.filter(
-            Question.question.ilike(f"%{search_query}%")).all()
+            Question.question.ilike(f"%{search_query}%")
+        ).all()
+
         paginated_questions = get_paginated_questions(
-            questions, page, QUESTIONS_PER_PAGE)
+            questions,
+            page,
+            QUESTIONS_PER_PAGE
+        )
+
         return jsonify({
             "success": True,
             "questions": paginated_questions,
@@ -118,7 +129,7 @@ def create_app(test_config=None):
         category = Category.query.get(id)
         questions = Question.query.filter(Question.category == id).all()
         page = request.args.get('page', 1, type=int)
-        
+
         return jsonify({
             "questions": get_paginated_questions(questions, page, QUESTIONS_PER_PAGE),
             "totalQuestions": len(questions),
@@ -131,7 +142,7 @@ def create_app(test_config=None):
         if request_body is None:
             abort(400)
 
-        previous_questions_id = request_body['previous_questions']
+        previous_questions_ids = request_body['previous_questions']
         category = request_body['quiz_category']
 
         if category['id'] == 0:
@@ -141,10 +152,12 @@ def create_app(test_config=None):
 
         selection = []
 
+        # select questions that were not already played
         for question in questions:
-            if question.id not in previous_questions_id:
+            if question.id not in previous_questions_ids:
                 selection.append(question.format())
 
+        # get a random question from the selection
         quizz_question = choice(questions)
 
         return jsonify({
