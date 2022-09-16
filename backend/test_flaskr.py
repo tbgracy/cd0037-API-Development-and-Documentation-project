@@ -10,6 +10,8 @@ from models import setup_db, Question, Category
 class TriviaTestCase(unittest.TestCase):
     """This class represents the trivia test case"""
 
+    to_delete_id = None
+
     def setUp(self):
         """Define test variables and initialize app."""
         self.app = create_app()
@@ -58,20 +60,6 @@ class TriviaTestCase(unittest.TestCase):
         self.assertEqual(data['error'], 404)
         self.assertIsNotNone(data['messages'])
 
-    def test_delete_question(self):
-        res = self.client().delete('/questions/4')
-        data = json.loads(res.data)
-
-        self.assertTrue(data['success'])
-        self.assertEqual(data['deleted_question'], 4)
-        # @TODO : re-insert deleted data
-
-    def test_delete_question_error(self):
-        res = self.client().delete('/questions/999')
-        data = json.loads(res.data)
-
-        self.assertEqual(data['error'], 404)
-
     def test_add_question_successfully(self):
         res = self.client().post('/questions', json={
             "question": "What's the name of this book?",
@@ -80,6 +68,8 @@ class TriviaTestCase(unittest.TestCase):
             "difficulty": 3
         })
         data = json.loads(res.data)
+
+        self.__class__.to_delete_id = data['created_question_id']
 
         self.assertTrue(data['success'])
 
@@ -90,6 +80,20 @@ class TriviaTestCase(unittest.TestCase):
         data = json.loads(res.data)
 
         self.assertEqual(data['error'], 400)
+
+    def test_delete_question(self):
+        to_delete_id = self.__class__.to_delete_id
+        res = self.client().delete(f'/questions/{to_delete_id}')
+        data = json.loads(res.data)
+
+        self.assertTrue(data['success'])
+        self.assertEqual(data['deleted_question'], to_delete_id)
+
+    def test_delete_question_error(self):
+        res = self.client().delete('/questions/999')
+        data = json.loads(res.data)
+
+        self.assertEqual(data['error'], 404)
 
     def test_search_question(self):
         res = self.client().post('/search', json={
