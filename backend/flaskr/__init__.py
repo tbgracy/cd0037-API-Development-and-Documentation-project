@@ -13,14 +13,6 @@ def create_app(test_config=None):
     app = Flask(__name__)
     setup_db(app)
 
-    def get_paginated_questions(selection, page, item_per_page):
-        start = (page - 1) * item_per_page
-        end = start + item_per_page
-        questions = [question.format() for question in selection]
-        if len(questions[start:end]) == 0:
-            abort(404, 'This page is empty')
-        return questions[start:end]
-
     CORS(app, resources={r"/*": {"origins": "*"}})
 
     @app.after_request
@@ -53,15 +45,13 @@ def create_app(test_config=None):
         for category in categories:
             formated_categories[category.id] = category.type
 
-        all_questions = Question.query.all()
-
-        paginated_questions = get_paginated_questions(
-            Question.query.all(), page, QUESTIONS_PER_PAGE)
+        questions = Question.query.paginate(page=page, per_page=QUESTIONS_PER_PAGE)
+        formated_questions = [question.format() for question in questions.items]
 
         return jsonify({
             "success": True,
-            "questions": paginated_questions,
-            "total_questions": len(all_questions),
+            "questions": formated_questions,
+            "total_questions": questions.total,
             "categories": formated_categories,
         })
 
@@ -93,7 +83,7 @@ def create_app(test_config=None):
 
         question.insert()
 
-        return jsonify({"success": True})
+        return jsonify({"success": True, "created_question_id": question.id})
 
     @app.route("/search", methods=["POST"])
     def search_question():
@@ -110,29 +100,27 @@ def create_app(test_config=None):
 
         questions = Question.query.filter(
             Question.question.ilike(f"%{search_query}%")
-        ).all()
+        ).paginate(page=page, per_page=QUESTIONS_PER_PAGE)
 
-        paginated_questions = get_paginated_questions(
-            questions,
-            page,
-            QUESTIONS_PER_PAGE
-        )
+        formated_questions = [question.format() for question in questions.items]
 
         return jsonify({
             "success": True,
-            "questions": paginated_questions,
-            "total_questions": len(questions),
+            "questions": formated_questions,
+            "total_questions": questions.total,
         })
 
     @app.route("/categories/<int:id>/questions")
     def get_questions_by_categories(id):
         category = Category.query.get(id)
-        questions = Question.query.filter(Question.category == id).all()
+        if category is None:
+            abort(404)
         page = request.args.get('page', 1, type=int)
+        questions = Question.query.filter(Question.category == id).paginate(page=page, per_page=QUESTIONS_PER_PAGE)
 
         return jsonify({
-            "questions": get_paginated_questions(questions, page, QUESTIONS_PER_PAGE),
-            "totalQuestions": len(questions),
+            "questions": [question.format() for question in questions.items],
+            "totalQuestions": questions.total,
             "currentCategory": category.type
         })
 
